@@ -13,15 +13,17 @@ import state
 def register_prompts(server: FastMCP) -> None:
 
     @server.prompt("analyze_api")
-    def analyze_api_prompt() -> dict[str, Any]:
-        """Analyze API endpoints captured in the HAR file."""
-        har_data = state.get_har_data()
+    def analyze_api_prompt(
+        label: str = Field(description="Label of the HAR to analyze"),
+    ) -> dict[str, Any]:
+        """Analyze API endpoints captured in a HAR file."""
+        har_data = state.get_har(label)
         endpoints = har_parser.get_urls_and_methods(har_data)
         summary = har_parser.get_har_summary(har_data)
 
         return {
             "prompt": f"""\
-Analyze the API traffic captured in this HAR file.
+Analyze the API traffic captured in HAR '{label}'.
 
 Domains: {', '.join(summary['domains'])}
 Total entries: {summary['entry_count']}
@@ -38,19 +40,22 @@ Tasks:
 4. Note any pagination, rate limiting, or versioning patterns
 5. Highlight any errors or unusual status codes
 
-Use get_request_details to inspect individual requests for deeper analysis.""",
+Use get_request_details with label='{label}' to inspect individual requests.""",
             "context": {
+                "label": label,
                 "summary": summary,
                 "endpoints": endpoints,
             },
         }
 
     @server.prompt("security_audit")
-    def security_audit_prompt() -> dict[str, Any]:
+    def security_audit_prompt(
+        label: str = Field(description="Label of the HAR to audit"),
+    ) -> dict[str, Any]:
         """Perform a security audit of the captured HTTP traffic."""
-        har_data = state.get_har_data()
+        har_data = state.get_har(label)
         summary = har_parser.get_har_summary(har_data)
-        entries = state.get_entries()
+        entries = state.get_entries(label)
 
         compact_entries: list[dict[str, str]] = []
         for i, entry in enumerate(entries):
@@ -65,7 +70,7 @@ Use get_request_details to inspect individual requests for deeper analysis.""",
 
         return {
             "prompt": f"""\
-Perform a security audit of the HTTP traffic captured in this HAR file.
+Perform a security audit of the HTTP traffic in HAR '{label}'.
 
 Domains: {', '.join(summary['domains'])}
 Total entries: {summary['entry_count']}
@@ -80,8 +85,9 @@ Check for:
 7. Excessive data exposure in API responses
 8. Missing security headers (CSP, HSTS, X-Frame-Options)
 
-Use get_request_details to inspect suspicious requests in detail.""",
+Use get_request_details with label='{label}' to inspect suspicious requests.""",
             "context": {
+                "label": label,
                 "summary": summary,
                 "entries": compact_entries,
             },
@@ -89,10 +95,11 @@ Use get_request_details to inspect suspicious requests in detail.""",
 
     @server.prompt("analyze_request")
     def analyze_request_prompt(
+        label: str = Field(description="Label of the HAR to query"),
         request_id: str = Field(description="The request ID to analyze (e.g. request_0)"),
     ) -> dict[str, Any]:
         """Analyze a specific request/response pair in detail."""
-        har_data = state.get_har_data()
+        har_data = state.get_har(label)
         details = har_parser.get_request_details(har_data, request_id)
 
         request = details.get("request", {})
@@ -100,7 +107,7 @@ Use get_request_details to inspect suspicious requests in detail.""",
 
         return {
             "prompt": f"""\
-Analyze this HTTP request/response in detail.
+Analyze this HTTP request/response from HAR '{label}'.
 
 Request: {request.get('method', '')} {request.get('url', '')}
 Status: {response.get('status', '')} {response.get('statusText', '')}
@@ -114,6 +121,7 @@ Tasks:
 5. Identify any security concerns (sensitive data, missing headers, etc.)
 6. Note any caching, compression, or performance implications""",
             "context": {
+                "label": label,
                 "request_details": details,
             },
         }

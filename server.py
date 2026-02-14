@@ -14,9 +14,11 @@ server = FastMCP(
     "HAR",
     instructions="""\
 HAR (HTTP Archive) analysis server. Workflow:
-1. Load a HAR file with load_har (file path or URL)
-2. List endpoints with list_urls_methods
-3. Drill into specific requests with get_request_ids and get_request_details
+1. Load one or more HAR files with load_har (file path or URL). Each gets a label.
+2. List loaded files with list_hars
+3. List endpoints with list_urls_methods(label)
+4. Drill into specific requests with get_request_ids and get_request_details
+5. Unload files with unload_har(label) when done
 Authentication headers are automatically redacted for security.""",
 )
 
